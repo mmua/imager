@@ -1,0 +1,4 @@
+*.swp
+*.pyc
+twistd.pid
+dropin.cache
