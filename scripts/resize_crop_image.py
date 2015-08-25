@@ -116,17 +116,11 @@ if __name__ == "__main__":
                     _makedirs(dstdir)
                     
                 if request['cmd'] == 'resize':
-                    try:
-                        w, h = resize_image(src, dst, width, height, forse_size)
-                        res = {'status' : 'ok', 'src': src, 'dst': dst, 'width': w, 'height': h}
-                    except Exception, e:
-                        res = {'status' : 'error', 'msg': 'resize exception', 'data': str(e)}
+                    w, h = resize_image(src, dst, width, height, forse_size)
+                    res = {'status' : 'ok', 'src': src, 'dst': dst, 'width': w, 'height': h}
                 elif request['cmd'] == 'crop':
-                    try:
-                        w, h = crop_image(src, dst, width, height)
-                        res = {'status' : 'ok', 'src': src, 'dst': dst, 'width': w, 'height': h}
-                    except Exception, e:
-                        res = {'status' : 'error', 'msg': 'crop exception', 'data': str(e)}
+                    w, h = crop_image(src, dst, width, height)
+                    res = {'status' : 'ok', 'src': src, 'dst': dst, 'width': w, 'height': h}
  
             except ValueError:
                 res = {'status' : 'error', 'msg': 'unexpected data', 'data': data}

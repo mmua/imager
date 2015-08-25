@@ -57,6 +57,16 @@ def my_parse_config(filename):
         conf["sqlite_settings"] = \
         ObjectDict(database=cp.get("sqlite", "database"))
 
+    # tokyotyrant support
+    if tryget(cp.getboolean, "tokyotyrant", "enabled", False) is True:
+        conf["tokyotyrant_settings"] = ObjectDict(
+                    host=tryget(cp.get, "tokyotyrant", "host", "127.0.0.1"),
+                    port=tryget(cp.getint, "tokyotyrant", "port", 1978))
+    else:
+        raise ValueError("TokyoTyrant is mandatory, but is currently disabled "
+                            "in images.conf. Not running.")
+
+
     # redis support
     if tryget(cp.getboolean, "redis", "enabled", False) is True:
         conf["redis_settings"] = ObjectDict(

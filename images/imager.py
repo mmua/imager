@@ -21,6 +21,8 @@ from twisted.internet import reactor, protocol, defer
 from twisted.python import log
 from collections import deque
 
+import json
+
 class ImagerProtocol(protocol.ProcessProtocol):
 
     def connectionMade(self):
@@ -37,12 +39,12 @@ class ImagerProtocol(protocol.ProcessProtocol):
 
     def errReceived(self, data):
         try:
-            print "process %s got response" % self.pid
+            print "process %s got err response" % self.pid
             if self.df:
                 self.df.callback(data)
                 self.df = None
         except Exception, e:
-            print str(e)
+            print "Exception goes here:", str(e)
             if self.df:
                 self.df.errback(e)
 
@@ -52,7 +54,7 @@ class ImagerProtocol(protocol.ProcessProtocol):
             self.df.callback(data)
             self.df = None
         except Exception, e:
-            print str(e)
+            print "Got exception", str(e)
             self.df.errback(e)
 
     def noResponse(self, err):
@@ -71,6 +73,8 @@ class ImagerMixin(object):
     subprocesses = {}
     running = {}
     waiting = deque()
+    base = "/var/www/images.f1news.ru/frontend/static/i"
+    resize_base = "/var/www/images.f1news.ru/frontend/static/r"
     
     @classmethod
     def setup(cls, conf):
@@ -95,8 +99,17 @@ class ImagerMixin(object):
         return df
 
     @classmethod
+    def crop(cls, src, dst, resize):
+        df = defer.Deferred()
+        cmd = {'cmd': 'crop', 'src': src, 'dst': dst, 'resize': resize, 'df': df}
+        cls.waiting.appendleft(cmd)
+        if len(cls.running) < len(cls.subprocesses):
+            cls.schedule()
+        return df
+
+    @classmethod
     def schedule(cls):
-        for pid, pp in cls.subprocesses:
+        for pid, pp in cls.subprocesses.iteritems():
             if pp.idle() and cls.waiting:
                 cmd = cls.waiting.pop()
                 res = cmd.pop('df')
@@ -106,7 +119,11 @@ class ImagerMixin(object):
                     del cls.running[pp.pid]
                     if len(cls.running) < len(cls.subprocesses):
                         reactor.callLater(0, cls.schedule)
-                    data = json.loads(data)
+                    try:
+                        data = json.loads(data)
+                    except ValueError, e:
+                        print data
+                        data = {'status': 'error', 'data': data}
                     status = data.pop('status')
                     if status == 'ok':
                         res.callback(data)

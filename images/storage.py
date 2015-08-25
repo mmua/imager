@@ -30,6 +30,9 @@ from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.python import log
 
+from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.protocols.memcache import MemCacheProtocol
+
 from images import txdbapi
 
 
@@ -69,6 +72,7 @@ def DatabaseSafe(method):
 class DatabaseMixin(object):
     mysql = None
     redis = None
+    tokyotyrant = None
     sqlite = None
 
     @classmethod
@@ -79,6 +83,13 @@ class DatabaseMixin(object):
                 cyclone.sqlite.InlineSQLite(conf["sqlite_settings"].database)
             else:
                 log.err("SQLite is currently disabled: %s" % sqlite_err)
+
+        if "tokyotyrant_settings" in conf:
+            ttfactory = MemcacheClientFactory()
+            reactor.connectTCP(conf["tokyotyrant_settings"].host, 
+                               conf["tokyotyrant_settings"].port, 
+                               ttfactory)
+
 
         if "redis_settings" in conf:
             if conf["redis_settings"].get("unixsocket"):
@@ -128,3 +139,28 @@ class DatabaseMixin(object):
 
             if conf["mysql_settings"].ping > 1:
                 _ping_mysql()
+
+
+class MemcacheClientFactory(ReconnectingClientFactory, DatabaseMixin):
+    connected = False
+
+    def startedConnecting(self, connector):
+        pass
+
+    def buildProtocol(self, addr):
+        self.resetDelay()
+        self.connected = True
+        self.protocol = MemCacheProtocol()
+        DatabaseMixin.tokyotyrant = self.protocol
+        return self.protocol
+
+    def clientConnectionLost(self, connector, reason):
+        self.connected = False
+        DatabaseMixin.tokyotyrant = None
+        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+        self.retry(connector)
+
+    def clientConnectionFailed(self, connector, reason):
+        ReconnectingClientFactory.clientConnectionFailed(self, connector,
+                                                         reason)
+        self.retry(connector)

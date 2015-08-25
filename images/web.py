@@ -19,8 +19,7 @@
 import cyclone.locale
 import cyclone.web
 
-from images import views
-from images import image
+from images import views,proxy,image
 from images import config
 from images.storage import DatabaseMixin
 from images.imager  import ImagerMixin
@@ -41,8 +40,9 @@ class Application(cyclone.web.Application):
             (r"/legal",     cyclone.web.RedirectHandler,
                                 {"url": "/static/legal.txt"}),
 
-            (r"/i/resize/(.+)",  image.ImageResizeHandler),
-            (r"/i/(.+)",         image.ImageHandler),
+            (r"/r/(.+)",  image.ImageResizeHandler),
+            (r"/c/(.+)",  image.ImageResizeHandler, {'cmd' : 'crop'}),
+            (r"/i/(.+)",  image.ImageHandler),
         ]
 
         # Initialize locales
@@ -58,4 +58,17 @@ class Application(cyclone.web.Application):
 
         conf["login_url"] = "/signin"
         conf["autoescape"] = None
+        cyclone.web.Application.__init__(self, handlers, **conf)
+
+class ProxyApplication(cyclone.web.Application):
+    def __init__(self, config_file):
+        conf = config.parse_config(config_file)
+        handlers = [
+            (r"/",      views.IndexHandler),
+            (r"/(.+)",  proxy.DownloadHandler),
+        ]
+
+        # Set up database connections
+        DatabaseMixin.setup(conf)
+
         cyclone.web.Application.__init__(self, handlers, **conf)
